@@ -1,0 +1,205 @@
+\ifx\PREAMBLE\undefined
+\input{preamble}
+\begin{document}
+\fi
+\newpage
+\section{Performance Optimization}
+\subsection{Performance of arithmetic operations on the reference machine}
+\begin{table}[ht]
+\caption{Performance \& bound of arithmetic operations}
+\centering
+\begin{tabular}{c|ccc|ccc}\toprule
+\multirow{2}[4]*{Operation} & \multicolumn{3}{c|}{Integer} & \multicolumn{3}{c}{Floating Number}\\\cmidrule{2-7}
+& Latency & Issue & Capacity & Latency & Issue & Capacity\\\midrule
+Addition & 1 & 1 & 4 & 3 & 1 & 1\\
+Multiplication & 3 & 1 & 1 & 5 & 1 & 2\\
+Division & 3-30 & 3-30 & 1 & 3-15 & 3-15 & 1\\\midrule
+\multirow{2}[4]*{Bound} & \multicolumn{3}{c|}{Integer} & \multicolumn{3}{c}{Floating Number}\\\cmidrule{2-7}
+& + & * && + & *\\\midrule
+Latency & 1.00 & 3.00 && 3.00 & 5.00\\
+Throughput & 0.50 & 1.00 && 1.00 & 0.50\\\bottomrule
+\end{tabular}
+\end{table}
+\subsection{Techniques}
+Various techniques for performance optimization are illustrated on the following code.
+\begin{lstlisting}
+#define IDENT 1 //#define IDENT 0
+#define OP *		//#define OP +
+typedef struct {
+	long len;
+	data_t *data;
+} vec_rec, *vec_ptr;
+
+int get_vec_element(vec_ptr v, long index, data_t *dest) {
+	if(index < 0 || index > v->len) return 0;
+	*dest = v->data[index];
+	return 1;
+}
+
+long vec_length(vec_ptr v) { return v->len; }
+
+void combine1(vec_ptr v, data_t *dest) {
+	long i;
+	*dest = IDENT;
+	for(i = 0; i < vec_length(v); ++i) {
+		data_t val;
+		get_vec_element(v, i, &val);
+		*dest = *dest OP val;
+	}
+}
+\end{lstlisting}
+\subsubsection{Code motion}
+\begin{lstlisting}
+void combine2(vec_ptr v, data_t *dest) {
+	long i;
+	(*@\color{red}long length = vec\_length(v);@*)
+	*dest = IDENT;
+	for(i = 0; i < (*@\color{red}length@*); ++i) {
+		data_t val;
+		get_vec_element(v, i, &val);
+		*dest = *dest OP val;
+	}
+}
+\end{lstlisting}
+\subsubsection{Reduce procedure calls}
+\begin{lstlisting}
+(*@\color{red}data\_t *get\_vec\_start(vec\_ptr v)@*) { return v->data; }
+
+void combine3(vec_ptr v, data_t *dest) {
+	long i;
+	long length = vec_length(v);
+	(*@\color{red}data\_t *data = get\_vec\_start(v);@*)
+	*dest = IDENT;
+	for(i = 0; i < length; ++i) {
+		*dest = *dest OP (*@\color{red}data[i]@*);
+	}
+}
+\end{lstlisting}
+\subsubsection{Eliminate unnecessary memory references}
+\begin{lstlisting}
+void combine4(vec_ptr v, data_t *dest) {
+	long i;
+	long length = vec_length(v);
+	data_t *data = get_vec_start(v);
+	(*@\color{red}data\_t acc = IDENT; @*)
+	for(i = 0; i < length; ++i) {
+		(*@\color{red}acc@*) = (*@\color{red}acc@*) OP data[i];
+	}
+	(*@\color{red}*dest = acc; @*)
+}
+\end{lstlisting}
+\subsubsection{Loop unrolling (2 * 1 unrolling)}
+\begin{lstlisting}
+void combine5(vec_ptr v, data_t *dest) {
+	long i;
+	long length = vec_length(v);
+	data_t *data = get_vec_start(v);
+	data_t acc = IDENT;
+	(*@\color{red}long limit = length - 1;@*)//length - k + 1 for k
+	for(i = 0; i < (*@\color{red}limit@*); (*@\color{red}i+=2@*)) { //i+=k for k
+		(*@\color{red}acc = (acc OP data[i]) OP data[i + 1];@*)
+	}
+	(*@\color{red}
+	for(; i < length; ++i) acc = acc OP data[i]; 
+	@*)
+	*dest = acc;
+}
+\end{lstlisting}
+\subsubsection{Multiple accumulator (2 * 2 unrolling)}
+\begin{lstlisting}
+void combine6(vec_ptr v, data_t *dest) {
+	long i;
+	long length = vec_length(v);
+	data_t *data = get_vec_start(v);
+	long limit = length - 1;//length - k + 1 for k
+	(*@\color{red}data\_t acc0 = IDENT;@*)
+	(*@\color{red}data\_t acc1 = IDENT;@*)
+	for(i = 0; i < limit; i+=2) { //i+=k for k
+		(*@\color{red}acc0 = acc0 OP data[i];@*)
+		(*@\color{red}acc1 = acc1 OP data[i + 1];@*)
+	}
+	for(; i < length; ++i) (*@\color{red}acc0@*) = (*@\color{red}acc0@*) OP data[i]; 
+	*dest = (*@\color{red}acc0 OP acc1@*);
+}
+\end{lstlisting}
+\subsubsection{Reassociation (2 * 1a unrolling)}
+\begin{lstlisting}
+void combine5(vec_ptr v, data_t *dest) {
+	long i;
+	long length = vec_length(v);
+	data_t *data = get_vec_start(v);
+	data_t acc = IDENT;
+	long limit = length - 1;//length - k + 1 for k
+	for(i = 0; i < limit; i+=2) { //i+=k for k
+		acc = (*@\color{red}acc OP (data[i]) OP data[i + 1]@*);
+	}
+	for(; i < length; ++i) acc = acc OP data[i]; 
+	*dest = acc;
+}
+\end{lstlisting}
+\subsection{Limitations}
+\begin{enumerate}
+\item Register spilling. When the degree of parallelism $p$ exceeds the number of registers, some temporaries will have to be stored on stack, which harms the performance of the program. 
+\item Penalty of wrong branch prediction. Usually we do not have to worry too much about the penalty. But we should write code suitable for conditional moves when possible.
+\begin{center}
+\begin{tabular}{m{0.35\textwidth}|m{0.5\textwidth}}\toprule
+\multicolumn{1}{c|}{Imperative Code} & \multicolumn{1}{c}{Functional Code}\\\midrule
+\begin{verbatim}
+if(a[i] > b[i]) {
+  long t = a[i];
+  a[i] = b[i];
+  b[i] = t;
+}
+\end{verbatim}
+&
+\begin{verbatim}
+long min = a[i] < b[i] ? : a[i] : b[i];
+long max = a[i] < b[i] ? b[i] : a[i];
+a[i] = min;
+b[i] = max;
+\end{verbatim}
+\\\midrule
+\begin{verbatim}
+if(src1[i1] < src2[i2])
+  dest[id++] = src1[i1++];
+else
+  dest[id++] = src2[i2++];
+\end{verbatim} 
+&
+\begin{verbatim}
+long v1 = src[i1], v2 = src[i2];
+bool choose1 = v1 < v2;
+dest[id++] = choose1 ? v1 : v2;
+i1 += choose1;
+i2 += (1 - choose1);
+\end{verbatim}
+\\\bottomrule
+\end{tabular} 
+\end{center}
+\end{enumerate}
+\subsection{Memory Performance}
+Try to avoid loading value from a memory position immediately after writing to it, which increases the length of the critical path. For example, this function:
+\begin{lstlisting}
+void psum1(float a[], float p[], long n) {
+	long i;
+	p[0] = a[0];
+	for(i = 1; i < n; i++) {
+		p[i] = p[i - 1] + a[i];//Load from p[i-1], which was written in the last iteration. 
+	}
+}
+\end{lstlisting}
+should be written as:
+\begin{lstlisting}
+void psum1_better(float a[], float p[], long n) {
+	long i;
+	float val = a[0];
+	p[0] = val;
+	for(i = 1; i < n; i++) {
+		val += a[i];
+		p[i] = val;//val is in register, not in memory.
+	}
+}
+\end{lstlisting}
+\ifx\PREAMBLE\undefined
+\end{document}
+\fi

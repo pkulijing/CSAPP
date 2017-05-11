@@ -1,0 +1,373 @@
+\ifx\PREAMBLE\undefined
+\input{preamble}
+\begin{document}
+\fi
+\newpage
+\section{x86-64 Assembly Language}
+\subsection{Registers \& operand indicators}
+\begin{table}[ht]
+\caption{x86-64 registers \& operand indicators}
+\centering
+\begin{tabular}{m{120pt}m{60pt}m{30pt}m{30pt}m{85pt}}\toprule
+63 & 31 & 15 & 7 & function\\\midrule
+\%rax & \%eax & \%ax & \%al & return value\\
+\%rbx & \%ebx & \%bx & \%bl & preserved by callee\\
+\%rcx & \%ecx & \%cx & \%cl & 4th argument\\
+\%rdx & \%edx & \%dx & \%dl & 3rd argument\\
+\%rsi & \%esi & \%si & \%sil & 2nd argument\\
+\%rdi & \%edi & \%di & \%dil & 1st argument\\
+\%rbp & \%ebp & \%bp & \%bpl & preserved by callee\\
+\%rsp & \%esp & \%sp & \%spl & stack pointer\\
+\%r8	&	\%r8d	&	\%r8w	&	\%r8b	& 5th parameter\\
+\%r9	&	\%r9d	&	\%r9w	&	\%r9b	& 6th parameter\\
+\%r10	&	\%r10d	&	\%r10w	&	\%r10b	&	preserved by caller\\
+\%r11	&	\%r11d	&	\%r11w	&	\%r11b	&	preserved by caller\\
+\%r12	&	\%r12d	&	\%r12w	&	\%r12b	& preserved by callee\\
+\%r13	&	\%r13d	&	\%r13w	&	\%r13b	& preserved by callee\\
+\%r14	&	\%r14d	&	\%r14w	&	\%r14b	& preserved by callee\\
+\%r15	&	\%r15d	&	\%r15w	&	\%r15b	& preserved by callee\\\bottomrule
+\end{tabular}
+\begin{tabular}{m{80pt}m{100pt}m{169pt}}
+$\$Imm$ & Immediate number & $Imm$\\
+$r_a$ & Value of register $r_a$ & $R[r_a]$\\
+$Imm(r_b, r_s, s)$ & Value at memory & $M[Imm + R[r_b] + R[r_s] * s]$, $s=1,2,4,8$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data movement}
+\begin{itemize}
+\item Direct move: \texttt{MOV S D, D$\leftarrow$S}. \texttt{S} is immediate number, register or memory position. \texttt{D} is register or memory position. \texttt{S,D} cannot both be memory positions.
+\item Move with zero expansion: \texttt{MOVZ S R, R$\leftarrow$Zero expansion(S)}. \texttt{S} can be register or memory position. \texttt{D} must be register. There is no \texttt{movzlq} because \texttt{movl} can set upper bits to 0, which is equivalent to zero expansion from 32 bits to 64 bits.
+\item Move with sign expansion: \texttt{MOVS S R, R$\leftarrow$Sign expansion(S)}. \texttt{S} can be register or memory position. \texttt{D} must be register.
+\item Push/pop stack: push 4 words (64 bits) on or pop 4 words from the stack. Special cases: \texttt{pushq \%rsp} pushes the original value of \texttt{\%rsp} on the stack; \texttt{popq \%rsp} puts the value read from memory in \texttt{\%rsp}.
+\end{itemize}
+\begin{table}[ht]
+\caption{Data movement instructions}
+\begin{tabular}{>{\tt}lm{300pt}}\toprule
+movb & Move byte (1B = 8bit, char)\\
+movw & Move word (2B = 16bit, short)\\
+movl & Move long word (4B = 32bit, int). Also set upper 32 bits of the register to 0\\
+movq & Move quad word (8B = 64bit, long, pointer). When \texttt{S} is immediate number, only expansion of 32-bit 2's component can be used. For 64-bit immediate value, use \texttt{movabsq}\\
+movabsq & move 64-bit immediate number to register\\\midrule
+movzbw & byte$\rightarrow$word (1B$\rightarrow$2B)\\
+movzbl & byte$\rightarrow$long word (1B$\rightarrow$4B)\\
+movzbq & byte$\rightarrow$quad word (1B$\rightarrow$8B)\\
+movzwl & word$\rightarrow$long word (2B$\rightarrow$4B)\\
+movzwq & word$\rightarrow$quad word (2B$\rightarrow$8B)\\\midrule
+movsbw & byte$\rightarrow$word (1B$\rightarrow$2B)\\
+movsbl & byte$\rightarrow$long word (1B$\rightarrow$4B)\\
+movsbq & byte$\rightarrow$quad word (1B$\rightarrow$8B)\\
+movswl & word$\rightarrow$long word (2B$\rightarrow$4B)\\
+movswq & word$\rightarrow$quad word (2B$\rightarrow$8B)\\
+movslq & long word$\rightarrow$quad word (4B$\rightarrow$8B)\\
+cltq & \texttt{\%rax$\leftarrow$Sign expansion(\%eax)}, i.e. \texttt{movslq \%eax \%rax}\\\midrule
+pushq S & \texttt{R[\%rsp]$\leftarrow$R[\%rsp]-8; M[R[\%rsp]]$\leftarrow$S}\\
+popq D & \texttt{D$\leftarrow$M[R[\%rsp]]; R[\%rsp]$\leftarrow$R[\%rsp]+8}\\\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Arithmetic \& logical operations}
+\begin{itemize}
+\item Load address (only 1 version, \texttt{q})
+\item Unary operations, binary operations, bitwise shifts (4 versions, \texttt{bwlq})
+\item 128-bit integer manipulation
+\end{itemize}
+
+\begin{center}
+\tablecaption{Arithmetic \& logical operation instructions}
+\tablefirsthead{}
+\tablehead{\multicolumn{4}{l}{\small continue}\\}
+\tabletail{\multicolumn{4}{r}{\small to be continued}\\}
+\tablelasttail{}
+\begin{supertabular}{>{\tt}m{45pt}>{\tt}m{125pt}>{\tt}m{45pt}>{\tt}m{125pt}}\toprule
+leaq S D & \texttt{D $\leftarrow$ \&S}\\\midrule
+inc D & D $\leftarrow$ D + 1 & dec D & D $\leftarrow$ D - 1 \\
+neg D & D $\leftarrow$ -D & not D & D $\leftarrow$ \textasciitilde D \\\cmidrule(lr){1-4}
+add S D & D $\leftarrow$ D + S & sub S D & D $\leftarrow$ D - S \\
+imul S D & D $\leftarrow$ D * S & or S D & D $\leftarrow$ D $|$ S \\ 
+and S D & D $\leftarrow$ D \& S \\\cmidrule(lr){1-4}
+sal k D & D $\leftarrow$ D $\ll$ k & shl k D & D $\leftarrow$ D $\ll$ k \\
+sar k D & D $\leftarrow$ D $\gg_A$ k & shr k D & D $\leftarrow$ D $\gg_L$ k \\\midrule
+imulq S & \multicolumn{2}{>{\tt}m{170pt}}{R[\%rdx]:R[\%rax] $\leftarrow$ S $\times$ R[\%rax]} & signed multiplication\\
+mulq S & \multicolumn{2}{>{\tt}m{170pt}}{R[\%rdx]:R[\%rax] $\leftarrow$ S $\times$ R[\%rax]} & unsigned multiplication\\
+cqto & \multicolumn{2}{>{\tt}m{170pt}}{R[\%rdx]:R[\%rax] $\leftarrow$ Signed expansion (R[\%rax])} & 4 words to 8 words\\
+idivq S & \multicolumn{2}{>{\tt}m{170pt}}{R[\%rdx] $\leftarrow$ R[\%rdx]:R[\%rax] mod S R[\%rax] $\leftarrow$ R[\%rdx]:R[\%rax] $\div$ S} & signed division\\
+divq S & \multicolumn{2}{>{\tt}m{170pt}}{R[\%rdx] $\leftarrow$ R[\%rdx]:R[\%rax] mod S R[\%rax] $\leftarrow$ R[\%rdx]:R[\%rax] $\div$ S} & unsigned division\\\bottomrule
+\end{supertabular}
+\end{center}
+
+\subsection{Control flow}
+\begin{itemize}
+	\item All arithemtic \& logical operations except \texttt{leaq} can make changes to condition codes \texttt{CF, ZF, SF, OF}. 
+	\item \texttt{cmp} and \texttt{test} instructions set the condition codes without changing values of registers. Both have 4 versions(\texttt{bwlq}).
+	\item \texttt{set} instructions can set a \textbf{byte} to 0 or 1 according to different combinations condition codes.
+	\item \texttt{jump} instructions can make the execution jump to a specified position according to different combinations of condition codes
+	\item \texttt{cmov} (conditional move) instructions can move the value at the source (memory position or register) to the destination register. They can be applied to 16, 32 or 64 bits (i.e. single byte conditional move is not supported!). 
+	\item For \texttt{set, jump} and \texttt{cmov} instructions, g/l (greater/less) are for signed integers, while a/b (above/below) are for unsigned integers.
+\end{itemize}
+
+\begin{center}
+\tablecaption{Condition codes \& control flow instructions}
+\tablefirsthead{}
+\tablehead{\multicolumn{5}{l}{\small continue}\\}
+\tabletail{\multicolumn{5}{r}{\small to be continued}\\}
+\tablelasttail{}
+\begin{supertabular}{>{\tt}l>{\tt}l>{\tt}m{80pt}m{60pt}m{100pt}}\toprule
+CF & carry & \multicolumn{3}{l}{Unsigned overflow (carry at highest bit).}\\
+ZF & zero & \multicolumn{3}{l}{Most recent result is 0.}\\
+SF & sign & \multicolumn{3}{l}{Most recent result is negative.}\\
+OF & overflow & \multicolumn{3}{l}{Complement overflow (+ or -).}\\\midrule
+\multicolumn{2}{>{\tt}l}{cmp $\mathtt{S_1\:S_2}$} & \multicolumn{3}{l}{Change condition codes according to $\mathtt{S_2-S_1}$.}\\
+\multicolumn{2}{>{\tt}l}{test $\mathtt{S_1\:S_2}$} & \multicolumn{3}{l}{Change condition codes according to $\mathtt{S_1 \& S_2}$.}\\\midrule
+& jmp && 1 & Unconditional jump\\\cmidrule(lr){1-5}
+sete setz & je jz & cmove cmovz & == & \texttt{ZF}\\
+setne setnz & jne jnz & cmovne cmovnz & != & \texttt{\textasciitilde ZF}\\\cmidrule(lr){1-5}
+sets & js & cmovs & negative & \texttt{SF}\\
+setns & jns & cmovns & not negative & \texttt{\textasciitilde SF}\\\cmidrule(lr){1-5}
+setg setnle & jg jnle & cmovg cmovnle & $>$ & \texttt{\textasciitilde (SF\^{}OF) \& \textasciitilde ZF}\\
+setge setnl & jge jnl & cmovge cmovnl & $>=$ & \texttt{\textasciitilde (SF\^{}OF)}\\
+setl setnge & jl jnge & cmovl cmovnge & $<$ & \texttt{SF\^{}OF}\\
+setle setng & jle jng & cmovle cmovng & $<=$ & \texttt{(SF\^{}OF) $|$ ZF}\\\cmidrule(lr){1-5}
+seta setnbe & ja jnbe & cmova cmovnbe & $>$ & \texttt{\textasciitilde CF \& \textasciitilde ZF}\\
+setae setnb & jae jnb & cmovae cmovnb & $>=$ & \texttt{\textasciitilde CF}\\
+setb setnae & jb jnae & cmovb cmovnae & $<$ & \texttt{CF}\\
+setbe setna & jbe jna & cmovbe cmovna & $<=$ & \texttt{CF $|$ ZF}\\\bottomrule
+\end{supertabular}
+\end{center}
+
+Using \texttt{jump} and \texttt{cmov} instructions, we can translate C structs into structures easier to implement with assembly language.
+\begin{center}
+\tablecaption{Translation of C constructs}
+\tablefirsthead{}
+\tablehead{\multicolumn{3}{l}{\small continue}\\}
+\tabletail{\multicolumn{3}{r}{\small to be continued}\\}
+\tablelasttail{}
+\begin{supertabular}{m{120pt}m{120pt}m{120pt}}\toprule
+C construct & Assembly code logic & Implementation details\\\midrule
+\begin{verbatim}
+if (test-expr)
+  then-statement
+else
+  else-statement
+\end{verbatim} &
+\begin{verbatim}
+t = test-expr;
+if (!t)
+  goto false;
+  then-statement
+  goto done;
+false:
+  else-statement
+done:
+\end{verbatim} & Use \texttt{jump} instructions.\\\midrule
+\begin{verbatim}
+if (test-expr)
+  then-statement
+else
+  else-statement
+\end{verbatim} &
+\begin{verbatim}
+t = test-expr;
+v = then-statement;
+ve = else-statement;
+if(!t) v = ve;
+\end{verbatim} & Use \texttt{cmov} instructions. Typically only when both statements are easy to
+calculate and have no side effect.\\\midrule\shrinkheight{10cm}
+\begin{verbatim}
+do
+  body-statement
+  while (test-expr);
+\end{verbatim} &
+\begin{verbatim}
+loop:
+  body-statement;
+  t = test-expr;
+  if(t) goto loop;
+\end{verbatim} & Use \texttt{jump} instructions.\\\midrule
+\begin{verbatim}
+while (test-expr)
+  body-statement;
+\end{verbatim} &
+\begin{verbatim}
+  goto test;
+loop:
+  body-statement;
+test:
+  t = test-expr;
+  if(t) goto loop;
+\end{verbatim} & Use \texttt{jump} instructions.\\\midrule
+\begin{verbatim}
+while (test-expr)
+  body-statement;
+\end{verbatim} &
+\begin{verbatim}
+  t = test-expr;
+  if(!t) goto done;
+loop:
+  body-statement;
+  t = test-expr;
+  if(t) goto loop;
+done:
+\end{verbatim} & Use \texttt{jump} instructions.\\\midrule
+\begin{verbatim}
+for(init-expr; 
+  test-expr; 
+  update-expr)
+  body-statement;
+\end{verbatim} &
+\begin{verbatim}
+init-expr;
+while(test-expr) {
+  body-statement;
+update:
+  update-expr;
+}
+\end{verbatim} & Use \texttt{jump} instructions. \texttt{update} is useful only when \texttt{body-statement} contains \texttt{continue}.\\\midrule\shrinkheight{-10cm}
+\begin{verbatim}
+switch(n) {
+case 100:
+  statement-0; break;
+case 101:
+  statement-1;
+case 103:
+case 104:
+  statement-4; break;
+default:
+  statement-default;
+}
+\end{verbatim} &
+\begin{verbatim}
+static void *jt[5] = {
+  &&loc_0,&&loc_1,
+  &&loc_def,&&loc_34, 
+  &&loc_34
+};
+unsigned long i = n - 100;
+if(i > 4) goto loc_def;
+goto *jt[i];
+loc_0:
+  statement-0; goto done;
+loc_1:
+  statement-1;
+loc_34:
+  statement-4; goto done;
+loc_def:
+  statement-default;
+done:
+\end{verbatim} & \begin{enumerate}
+\item \&\& (pointer to code location) is an extension defined by GCC.
+\item \texttt{unsigned long} handles the case of n $<$ 100 (n - 100 overflows to a large integer.)
+\end{enumerate}\\\bottomrule
+\end{supertabular}
+\end{center}
+\subsection{Procedure}
+Procedure is an important abstraction having different forms: function, subroutine, method, handler, etc. Each procedure has its own stack frame. For most procedures, stack frames are aligned to 16.
+\begin{figure}[ht]
+$\rotatebox[origin=c]{90}{address increases}\left\Uparrow\quad
+\begin{tabular}{|l|c|l}\cline{1-2}
+earlier frames & ...\bigstrut\\\cline{1-2}
+\multirow{5}[10]*{stack frame of caller P}
+& ...\bigstrut\\\cline{2-2}
+& parameter n\bigstrut\\\cline{2-2}
+& ...\bigstrut\\\cline{2-2}
+& parameter 7\bigstrut\\\cline{2-2}
+& return address\bigstrut\\\cline{1-2}
+\multirow{3}[6]*{stack frame of callee Q}
+& callee-preserved registers\bigstrut\\\cline{2-2}
+& local variables\bigstrut\\\cline{2-2}
+& parameters\bigstrut & $\longleftarrow$\texttt{ \%rsp}\\\cline{1-2}
+\end{tabular}
+\right.$
+\caption{Stack frame structure}
+\end{figure}
+\subsubsection{Transferring  control}
+Return address is the address of the instruction after \texttt{call}.
+\begin{table}[h]
+\centering
+\caption{Control transfer instructions}
+\begin{tabular}{>{\tt}ll}\toprule
+call & Push return address onto stack; Set PC(\texttt{\%rip}) to starting address of callee.\\
+ret & Pop return address off stack; Set PC(\texttt{\%rip}) to return address.\\\bottomrule
+\end{tabular}
+\end{table}
+\subsubsection{Passing arguments}
+\begin{itemize}
+\item Arguments 1-6 are respectively put inside registers \texttt{\%rdi, \%rsi, \%rdx, \%rcx, \%r8, \%r9} or their counterparts of smaller sizes. 
+\item Other arguments are on the stack, with argument 7 at the top. All on-stack arguments are aligned to 8.
+\item Argument k (k$>$6) is at address \texttt{\%rsp+8*(k-6)}.
+\end{itemize}
+\subsubsection{Local storage}
+Local data needs to be stored on stack in the following cases: 
+\begin{itemize}
+\item registers are not enough to hold all local data;
+\item the \& operator is used on a variable;
+\item arrays or structs are used as local variables.
+\end{itemize}
+On-stack local variables do not have to be aligned to 8. In general, basic variables (integers, pointers) of size K bytes should be aligned to K.
+
+Callee-preserved registers (\%rbx, \%rbp, \%r12-\%r15) should be saved on stack before being used inside the callee. Other registers are caller-preserved, i.e. if the caller expects their values to be available after calling a procedure, the caller should save them on stack before calling the procedure. 
+\subsection{Floating point instructions}
+\begin{itemize}
+\item 16 \texttt{\%ymm} registers, each of 256 bits, are used to store floating pointer numbers.
+\item When dealing with scalar FP numbers, we use \texttt{\%xmm} registers, i.e. lowest 128 bits of \texttt{\%ymm} registers to store them. Only the lowest 32 (float) or 64 (double) bits are used.
+\item \texttt{\%xmm0} is used to store the FP return value.
+\item \texttt{\%xmm0-7} are used to store 1st-8th FP arguments.
+\item \texttt{\%xmm8-15} are caller-preserved registers.
+\item \texttt{aps} = aligned packed single, \texttt{apd} = aligned packed double.
+\item \texttt{vcvttss2si} = Vector ConVerT Truncation Scalar Single-precision 2 Signed Int.
+\item Floating point comparison sets 3 condition codes: \texttt{CF, ZF} and \texttt{PF} (\texttt{P} = parity). If at least one of the two arguments is \texttt{NaN}, then there is no order, and \texttt{PF} is set to 1.
+\begin{center}
+\tablecaption{Condition codes of FP comparison}
+\tablefirsthead{}
+\tablehead{\multicolumn{4}{l}{\small continue}\\}
+\tabletail{\multicolumn{4}{r}{\small to be continued}\\}
+\tablelasttail{}
+\begin{supertabular}{cccc}\toprule
+&\texttt{CF}&\texttt{ZF}&\texttt{PF}\\\midrule
+No order  & 1 & 1 & 1\\
+$S_2<S_1$ & 1 & 0 & 0\\
+$S_2=S_1$ & 0 & 1 & 0\\
+$S_2>S_1$ & 0 & 0 & 0\\\bottomrule
+\end{supertabular}
+\end{center}
+\end{itemize}
+\begin{center}
+\tablecaption{Floating point instructions}
+\tablefirsthead{}
+\tablehead{\multicolumn{5}{l}{\small continue}\\}
+\tabletail{\multicolumn{5}{r}{\small to be continued}\\}
+\tablelasttail{}
+\begin{supertabular}{>{\tt}m{80pt}C{36pt}C{17pt}C{17pt}m{160pt}}\toprule
+vmovss & $M_{32}$ && X & float, memory $\rightarrow$ register\\
+vmovss & X && $M_{32}$ & float, register $\rightarrow$ memory\\
+vmovsd & $M_{64}$ && X & double, memory $\rightarrow$ register\\
+vmovsd & X && $M_{32}$ & double, register $\rightarrow$ memory\\
+vmovaps & X && X & float, register $\rightarrow$ register.\\
+vmovapd & X && X & double, register $\rightarrow$ register. \\\midrule
+vcvttss2si & X/$M_{32}$ && $R_{32}$ & float $\rightarrow$ int.\\
+vcvttsd2si & X/$M_{64}$ && $R_{32}$ & double $\rightarrow$ int. \\
+vcvttss2siq & X/$M_{32}$ && $R_{64}$ & float $\rightarrow$ long. \\
+vcvttsd2siq & X/$M_{64}$ && $R_{64}$ & double $\rightarrow$ long. \\\midrule
+vcvtsi2ss & $M_{32}/R_{32}$ & X & X & int $\rightarrow$ float.\\
+vcvtsi2sd & $M_{32}/R_{32}$ & X & X & int $\rightarrow$ double.\\
+vcvtsi2ssq & $M_{64}/R_{64}$ & X & X & long $\rightarrow$ float.\\
+vcvtsi2sdq & $M_{64}/R_{64}$ & X & X & long $\rightarrow$ double.\\
+\multicolumn{4}{>{\tt}m{150pt}}{vunpcklps \%xmm0 \%xmm0 \%xmm0 vcvtps2pd \%xmm0 \%xmm0} & float $\rightarrow$ double (weird but it is what gcc does)\\
+\multicolumn{4}{>{\tt}m{150pt}}{vmovddup \%xmm0 \%xmm0 vcvtpd2psx \%xmm0 \%xmm0} & double $\rightarrow$ float(weird but it is what gcc does)\\\midrule
+\multicolumn{4}{>{\tt}m{150pt}}{vaddss vaddsd} & $D\leftarrow S_2+S_1$\\
+\multicolumn{4}{>{\tt}m{150pt}}{vsubss vsubsd} & $D\leftarrow S_2-S_1$\\
+\multicolumn{4}{>{\tt}m{150pt}}{vmulss vmulsd} & $D\leftarrow S_2\times S_1$\\
+\multicolumn{4}{>{\tt}m{150pt}}{vdivss vdivsd} & $D\leftarrow S_2\div S_1$\\
+\multicolumn{4}{>{\tt}m{150pt}}{vmaxss vmaxsd} & $D\leftarrow\max(S_2, S_1)$\\
+\multicolumn{4}{>{\tt}m{150pt}}{vminss vminsd} & $D\leftarrow\min(S_2, S_1)$\\
+\multicolumn{4}{>{\tt}m{150pt}}{sqrtss sqrtsd} & $D\leftarrow\sqrt{S_1}$\\\midrule
+\multicolumn{4}{>{\tt}m{150pt}}{vxorps vxorpd} & $D\leftarrow S_2${\^{}}$S_1$\\
+\multicolumn{4}{>{\tt}m{150pt}}{vandps vandpd} & $D\leftarrow S_2\&S_1$\\\midrule
+\multicolumn{4}{>{\tt}m{150pt}}{ucomiss} & compare float according to $S_2-S_1$\\
+\multicolumn{4}{>{\tt}m{150pt}}{ucomisd} & compare double according to $S_2-S_1$\\\bottomrule
+\end{supertabular}
+\end{center}
+\ifx\PREAMBLE\undefined
+\end{document}
+\fi

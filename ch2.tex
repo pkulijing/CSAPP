@@ -1,0 +1,130 @@
+\ifx\PREAMBLE\undefined
+\input{preamble}
+\begin{document}
+\fi
+\newpage
+\section{Integer}
+\begin{itemize}
+\item Interpretation of binary representations
+\begin{equation*}
+\begin{array}{lll}
+B2U_w(\overrightarrow{x})=\sum\limits_{i=0}^{w-1}x_i2^i & UMin_w=0 & UMax_w=2^w-1\\
+
+B2T_w(\overrightarrow{x})=-x_{w-1}2^{w-1}+\sum\limits_{i=0}^{w-2}x_i2^i & TMin_w=-2^{w-1} & TMax_w=2^{w-1}
+-1\\
+\end{array}
+\end{equation*}
+
+\item Transformation between unsigned and signed
+\begin{gather*}
+T2U_w(x)=\begin{cases}
+x & 0 \le x \le TMax_w\\
+2^w+x & TMin_w\le x < 0
+\end{cases}\\
+U2T_w(u)=\begin{cases}
+u & 0 \le u \le TMax_w\\
+u - 2^w & TMax_w < u \le UMax_w
+\end{cases}\\
+\end{gather*}
+
+\item Expansion
+\begin{equation*}
+\begin{array}{ll}
+\overrightarrow{u}=[u_{w-1},\dots,u_0]\rightarrow\overrightarrow{u}'=[0,\dots,0,u_{w-1},\dots,u_0] & B2U_w(\overrightarrow{u})=B2U_{w'}(\overrightarrow{u}')\\
+\overrightarrow{x}=[x_{w-1},\dots,x_0]\rightarrow\overrightarrow{x}'=[x_{w-1},\dots,x_{w-1},x_{w-1},\dots,x_0] & B2T_w(\overrightarrow{x})=B2T_{w'}(\overrightarrow{x}')\\
+\end{array}
+\end{equation*}
+
+\item Truncation
+\begin{equation*}
+\begin{array}{ll}
+\overrightarrow{u}=[u_{w-1},\dots,u_0]\rightarrow\overrightarrow{u}'=[u_{k-1},\dots,u_0] & 
+B2U_k(\overrightarrow{u}')=B2U_{w}(\overrightarrow{u})\mod 2^k\\
+\overrightarrow{x}=[x_{w-1},\dots,x_0]\rightarrow\overrightarrow{x}'=[x_{k-1},\dots,x_0] & 
+B2T_k(\overrightarrow{x}')=U2T_{k}\left(B2U_{w}(\overrightarrow{x})\mod 2^k\right)\\
+\end{array}
+\end{equation*}
+
+\item Addition
+\begin{equation*}
+\begin{array}{ll}
+x+^u_wy=\begin{cases}
+x + y 		& 0 \le x+y < 2^w\\
+x + y - 2^w & 2^w \le x+y \le 2^{w+1} - 2
+\end{cases} & 0\le x,y \le 2^w-1\\
+x+^t_wy=\begin{cases}
+x + y + 2^w & -2^w \le x+y < -2^{w-1}\\
+x + y 			& -2^{w-1} \le x+y \le 2^{w-1} - 1\\
+x + y - 2^w & 2^{w-1} \le x+y \le 2^{w}-2
+\end{cases} & -2^{w-1} \le x,y \le 2^{w-1} - 1\\
+\end{array}
+\end{equation*}
+
+\item Negation
+\begin{equation*}
+-^t_wx=\begin{cases}
+TMin_w & x = TMin_w\\
+-x & TMin_w < x \le TMax_w
+\end{cases}
+\end{equation*}
+
+\item Multiplication
+\begin{equation*}
+\begin{array}{ll}
+x*^u_wy = (x\cdot y)\mod 2^w & u\ll k = u * ^u_w2^k\\
+x*^t_wy = U2T_w((x\cdot y)\mod 2^w) & x\ll k = x * ^t_w2^k\\
+\end{array}
+\end{equation*}
+
+\item Division
+\begin{equation*}
+\begin{array}{ll}
+\begin{gathered}
+x\gg k = \lfloor x/2^k \rfloor\\
+(x + (1\ll k) - 1)\gg k = \lceil x/2^k \rceil\\
+\end{gathered} & 
+x/y\equiv\begin{cases}
+\lfloor x/y \rfloor & x \ge 0, y>0\\
+\lceil x/y \rceil & x < 0, y > 0\\
+\end{cases}
+\end{array}
+\end{equation*}
+\end{itemize}
+\newpage
+\section{Floating Point Number}
+\begin{itemize}
+\item Definition $V=(-1)^s\times M \times 2^E$. 1-bit $s$ encodes the sign $s$, $k$-bit \texttt{exp} encodes the exponent $E$, and $n$-bit \texttt{frac} encodes the significand $M$. float: 1, 8, 23; double: 1, 11, 52.
+ \begin{description}
+ 	\item[Normalized] \texttt{exp} is neither 0 or $2^k-1$ (all 1). 
+ 	\begin{itemize}
+ 		\item $E=e-Bias$, in which $Bias=2^{k-1}-1$. 
+ 		\item $M=1.f_{n-1}\dots f_1f_0$.
+ 	\end{itemize} 
+ 	\item[Denormalized] \texttt{exp = 0}
+ 	\begin{itemize}
+ 		\item $E=1-Bias$.
+ 		\item $M=0.f_{n-1}\dots f_1f_0$.
+ 	\end{itemize}
+ 	\item[Infinity] \texttt{exp}=$2^{k}-1$ (all 1), \texttt{frac} = 0.
+ 	\item[NaN] \texttt{exp}=$2^{k}-1$ (all 1), \texttt{frac} $\neq$ 0.
+ \end{description}
+
+\item Use round to even.
+\item $x+^fy\equiv Round(x+y)$. FP addition lacks associativity but features monotonicity: $x+a\ge x+b$ if $a\ge b$.
+\item $x*^fy\equiv Round(x\times y)$. FP Multiplication is not associative, and it does not distribute over addition. It features monotonicity:
+\begin{align*}
+a\ge b, c\ge 0 &\Rightarrow a * ^fc \ge b * ^fc\\
+a\ge b, c\le 0 &\Rightarrow a * ^fc \le b * ^fc\\
+a\neq NaN &\Rightarrow a * ^fa\ge 0
+\end{align*}
+\item Type conversions:
+\begin{itemize}
+	\item \texttt{int} to \texttt{float}: no overflow. Possible to be rounded.
+	\item \texttt{int/float} to \texttt{double}: precise conversion.
+	\item \texttt{double} to \texttt{float}: possible to overflow to infinity. Possible to be rounded.
+	\item \texttt{float/double} to \texttt{int}: round to 0. Possible to overflow.
+\end{itemize}
+\end{itemize}
+\ifx\PREAMBLE\undefined
+\end{document}
+\fi

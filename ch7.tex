@@ -1,0 +1,166 @@
+\ifx\PREAMBLE\undefined
+\input{preamble}
+\begin{document}
+\fi
+\newpage
+\section[Linking]{Linking\footnote{7.8-7.14 omitted for the moment.}}
+\subsection{Basics}
+\begin{enumerate}
+\item C compiler driver:
+\begin{description}
+	\item[cpp] C preprocessor. *.c $\rightarrow$ *.i
+	\item[cc1] C compiler. *.i $\rightarrow$ *.s
+	\item[as] assembler. *.s $\rightarrow$ *.o 
+	\item[ld] linker. *.o $\rightarrow$ exec
+\end{description}
+
+\item Task of linker:
+\begin{description}
+	\item[Symbol resolution] Associate each symbol reference with one symbol definition.
+	\item[Relocation] Associate a memory location with each symbol definition, and modify all references to the symbol so that they point to this memory location.
+\end{description}
+
+\item Object files:
+\begin{description}
+	\item[relocatable object file] Binary code + data.
+	\item[executable object file] Can be directly copied into memory and executed.
+	\item[shared object file] A special type of relocatable object file. Can be loaded into memory and linked dynamically, at either load time or run time.
+\end{description}
+\end{enumerate}
+\subsection{Relocatable object file}
+\begin{description}
+\item[ELF header]16-byte sequence. Word size \& byte ordering of the system. Information for linker to parse \& interpreting the object file: size of ELF header; object file type; machine type; file offset, size, number of entries of the section header table.
+\item[section header table] a fixed-sized entry for each section. Locations \& sizes of the sections.
+\item[.text]Machine code of the compiled program.
+\item[.rodata]Read-only data.
+\item[.data]Initialized non-zero global / static variables.
+\item[.bss] Merely place holder (does not occupy actual space). Uninitialized or zero-initialized global / static variables.
+\item[symtab]Symbol table.
+\item[.rel.text]Relocation information. A list of locations in \texttt{.text} that need to be modified when the linker combines this object file with others. Any instruction that calls an external function or references a global variable needs to be modified.
+\item[.rel.data]Relocation information. Initialized global variable whose initial value is the address of a global variable or an externally defined function.
+\item[.debug]A debugging symbol table only present with \texttt{-g} option.
+\item[.line]A mapping between line numbers in the original C code and machine code instructions in \texttt{.text}.
+\item[.strtab]A string table for the symbol tables in \texttt{.symtab} and \texttt{.debug}, and section names in the section headers.
+\end{description}
+
+\subsection{Symbol table}
+\begin{description}
+\item[global symbols]Defined by this module and can be used by other modules. Non-static C functions \& global variables.
+\item[external symbols]C functions \& global variables defined by other modules and used by this module.
+\item[local symbols]C functions \& variables defined and referenced exclusively by this module. \texttt{static} C functions \& global variables.
+\end{description}
+Entry in symbol table:
+\begin{lstlisting}
+typedef struct {
+	int name;		/*String table offset. Name of the symbol.*/
+	char type:4, /*Function or data (4 bits)*/
+			 binding:4; /*Local or global*/
+	char reserved; /*Unused*/
+	short section; /*Section header index*/
+	long value; /*Address. Section offset (relocatable) or absolute address (executable)*/
+	long size; /*Object size in bytes.*/
+} Elf64_Symbol;
+\end{lstlisting}
+
+Pseudo sections:
+\begin{description}
+\item[ABS]Should not be relocated
+\item[UNDEF]Undefined symbols (referenced in this module but defined elsewhere).
+\item[COMMON]Uninitialized data objects that are not yet allocated. In this case, \texttt{value} gives alignment requirement and \texttt{size} gives the minimum size. Difference from \texttt{.bss}:
+\begin{itemize}
+	\item COMMON: uninitialized global variables.
+	\item .bss: uninitialized static variables; global / static variables initialized to 0.
+\end{itemize} 
+\end{description}
+\subsection{Symbol resolution}
+\subsubsection{Multiply defined global variables}
+\begin{itemize}
+	\item Strong symbols: Functions; initialized variables.
+	\item Weak symbols: Uninitialized variables.
+\end{itemize}
+Rules to resolve multiply defined global symbols:
+\begin{itemize}
+\item Multiple strong symbols are not allowed.
+\item Given a strong symbol and multiple weak symbols, choose the strong one.
+\item Given multiple weak symbols, choose any of them.
+\end{itemize}
+Error due to 2nd rule:
+\begin{lstlisting}
+/*foo.c*/
+#include <stdio.h>
+void f(void);
+int y = 15212;
+int x = 15313;
+int main() {
+  f();
+  printf("x=0x%x, y=0x%x\n", x, y);
+  return 0;
+}
+
+/*bar.c*/
+double x;
+void f() { x = -0.0; }
+\end{lstlisting}
+Running the program will give \texttt{x=0x0, y=0x80000000}.
+\subsubsection{Static libraries}
+During the symbol resolution phase, the linker scans the relocatable object files and archives (static libraries) from left to right according to their order in the command line. During the scan, the following sets are maintained:
+\begin{description}
+	\item[E] Relocatable object files to be merged into the executable.
+	\item[U] Unresolved symbols.
+	\item[D] Symbols defined in previous input files.
+\end{description}
+\begin{itemize}
+\item Initially \textbf{E, U, D} are all empty.
+\item For each input file \emph{f}, if \emph{f} is an object file, the linker adds \emph{f} to \textbf{E} and updates \textbf{U, D} according to symbol definitions and references in \emph{f}.
+\item If \emph{f} is an archive, the linker attempts to match symbols in \textbf{U} against symbols defined by the members of the archive. If a referenced symbol in \textbf{U} is defined in a member \emph{m} of the archive, then \emph{m} is added to \textbf{E} and \textbf{U, D} are updated accordingly. Repeat until \textbf{U, D} no longer changes. Members of the archive not contained in \textbf{E} are discarded.
+\item If \textbf{U} remains nonempty after the scan, the linker prints an error and terminates. Otherwise it merges all relocatable object files in \textbf{E} to build the executable. 
+\end{itemize}
+This makes the order of the command line arguments important. 
+\begin{itemize}
+\item Archives are put at the end of the command line.
+\item If archives are dependent, they need to be ordered so that for each symbol \emph{s} externally referenced by a member of an archive, at least one definition of \emph{s} follows a reference to \emph{s} on the command line. For this purpose archives can be repeated on the command line.
+\end{itemize}
+\subsection{Relocation}
+Relocation includes two steps:
+\begin{itemize}
+\item Relocate sections \& symbol definitions
+	\begin{itemize}
+	\item Merges all sections of the same type into an aggregate section (e.g. \texttt{.data}). 
+	\item Assigns run-time memory address to each \textbf{aggregate section}, each \textbf{(original) section} defined by input modules and each \textbf{symbol} defined by input modules.
+	\end{itemize}
+\item Relocate symbol references within sections
+	\begin{itemize}
+		\item Modifies symbol references in \texttt{.text} and \texttt{.data} so that they point to the correct run-time addresses according to the \textbf{relocation entries} in \texttt{.rel.text} and \texttt{.rel.data}. 
+	\end{itemize}
+\end{itemize}
+When the assembler encounters an reference to an object whose ultimate address is unknown, a \textbf{relocation entry} is generated for this reference.
+\begin{lstlisting}
+typedef struct {
+  long offset; /*section offset of the reference to relocate*/
+  long type:32, /*Relocation type. */
+       symbol:32; /*Symbol table index*/
+  long addend; /*Constant part of relocation expressions*/
+} Elf64_Rela;
+\end{lstlisting}
+There are totally 32 relocation types. Basic types that support \textbf{small code model}(data + code $<$ 2GB):
+\begin{itemize}
+\item R\_X86\_64\_PC32: for references using 32-bit PC-relative address.
+\item R\_X86\_64\_32: for references using 32-bit absolute address.
+\end{itemize}
+The pseudo code for the relocation algorithm used by the linker: 
+\begin{lstlisting}
+for section s {
+	for relocation entry r {
+		refptr = s + r.offset; /*ptr to reference to be relocated*/
+
+		if(r.type == R_X86_64_PC32) {
+			refaddr = ADDR(s) + r.offset;
+			*refptr = (unsigned)(ADDR(r.symbol) + r.addend - refaddr);
+		} else if (r.type == R_X86_64_32)
+			*refptr = (unsigned)(ADDR(r.symbol) + r.addend);
+	}
+}
+\end{lstlisting}
+\ifx\PREAMBLE\undefined
+\end{document}
+\fi
