@@ -225,7 +225,7 @@ Coalescing the next free block is simple. To coalesce the previous one, \textbf{
 \subsubsection{Explicit free lists}
 Implicit free list: allocation time linear to total number of blocks. 
 
-Explicit free list: allocation time linear to total number of free blocks. Downside: free blocks have to be larger enough to hold pointers, causing larger minimum size and better chance of internal fragmentation.
+Explicit free list: allocation time linear to total number of free blocks. Downside: free blocks have to be large enough to hold pointers, causing larger minimum size and better chance of internal fragmentation.
 \begin{figure}[ht]
 \ffigbox[0.7\textwidth]{}{{
 \begin{subfloatrow}[2]
@@ -240,6 +240,16 @@ Free time: depends on policy to order the blocks in the free list.
 	\item Maintains blocks in address order: linear free time, yet better memory utilization. 
 \end{itemize}
 \subsubsection{Segregated free lists}
+Segregated storage: maintain multiple free lists to reduce allocation time. Partition the set of all possible block sizes into equivalence classes called size classes, e.g. by power of 2:
+\[\{1\}, \{2\},\{3,4\},\{5,6,7,8\},\dots,\{1025-2048\},\{2049-4096\},\{4097-\infty\}\]
+Or maybe assign small blocks to their own size classes, e.g. a size class for each of 1-1024. Each size class has its own free list. 
+\subsubsection{Garbage collection}
+Reachability graph: each node is an allocated memory block. An edge $p\rightarrow q$ means some position in p holds a pointer to some position in q. Root node of the graph: out-of-heap position holding pointers pointing to positions in the heap, e.g. registers, stack variables, global variables, etc. If there exists a path from any root node to a node p, then p is reachable. At anytime, unreachable nodes correspond to garbage that can no longer be used by the application, and thus should be reclaimed. The garbage collector maintains some representation of the reachability graph, frees unreachable nodes and returns them to the free list. Since C does not maintain any type information for memory locations, there is no obvious way to determine if a variable is a pointer, neither is there an obvious way to tell if it points to a position inside an allocated block. A garbage collector implemented for C has to be conservative: there are false positives when detecting reachable nodes.
+\begin{figure}[ht]
+\centering
+\includegraphics[width=\textwidth]{reach_graph.pdf}
+\caption{Reachability graph}
+\end{figure}
 \ifx\PREAMBLE\undefined
 \end{document}
 \fi
